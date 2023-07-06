@@ -71,11 +71,11 @@ class DEQInference(object):
             bboxes = np.load(os.path.join(self.args.video_bboxes_folder_path, f'{video_ID}.npy'))
 
             if RWR:
-                NME, NMJ = self._test_single_video_sequential_RWR(video_frames, oracle_kpts, bboxes, plot=plot)
+                NME, NMJ = self._test_single_video_sequential_RWR(video_ID,video_frames, oracle_kpts, bboxes, plot=plot)
                 print(f'video {video_ID} (NME, NMJ) = ({NME:02.2f}, {NMJ:02.2f}) --- process time: {format_time(time.time()-t0)}')
 
             else:
-                NME, NMJ = self._test_single_video_sequential(video_frames, oracle_kpts, bboxes, plot=plot)
+                NME, NMJ = self._test_single_video_sequential(video_ID,video_frames, oracle_kpts, bboxes, plot=plot)
                 print(f'video {video_ID} (NME, NMJ) = ({NME:02.2f}, {NMJ:02.2f}) --- process time: {format_time(time.time()-t0)}')
 
             NMEs.append(NME); NMJs.append(NMJ)
@@ -115,13 +115,17 @@ class DEQInference(object):
         return NME, NMJ
 
     @torch.no_grad()
-    def _test_single_video_sequential_RWR(self, video_frames, oracle_kpts, bboxes, plot):
+    def _test_single_video_sequential_RWR(self,video_ID, video_frames, oracle_kpts, bboxes, plot):
         """
         Use z_star from prev frame as z0 of current frame
         """
         n_frames = len(video_frames)
         pred_frame_kpts = np.zeros((n_frames, 98, 2))
         prev_z_star = None
+        frame_0 = video_frames[0]
+        size = (frame_0.shape[1],frame_0.shape[0])
+        fourcc = cv2.VideoWriter_fourcc(*"MP4V") # 视频编码格式
+        videoWrite = cv2.VideoWriter(f'.out/{video_ID}.mp4',fourcc,20,size)
 
         for frame_idx in range(n_frames):
 
@@ -140,10 +144,11 @@ class DEQInference(object):
                 frame = video_frames[frame_idx]
                 frame = draw_landmark(oracle_kpts[frame_idx], frame, bgr=(0, 255, 0))
                 frame = draw_landmark(preds, frame, bgr=(0, 0, 255))
-                cv2.imshow(f'Oracle v.s. fine predictions', frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'): break  # press q key to break
+                videoWrite.write(frame)
+                # cv2.imshow(f'Oracle v.s. fine predictions', frame)
+                # if cv2.waitKey(1) & 0xFF == ord('q'): break  # press q key to break
 
-
+        videoWrite.release() 
         NME, NMJ = video_NME_NMJ(pred_frame_kpts, oracle_kpts)
 
         return NME, NMJ
@@ -311,8 +316,8 @@ def main(args):
     t0 = time.time()
     solver = DEQInference(args)
 
-    # solver.test_all_videos_sequential(RWR=args.rwr, plot=True)
-    solver.test_all_videos_batched(RWR=args.rwr)
+    solver.test_all_videos_sequential(RWR=args.rwr, plot=True)
+    # solver.test_all_videos_batched(RWR=args.rwr)
 
     print(f'\nTotal time: {format_time(time.time()-t0)}')
     print(f'Max mem: {torch.cuda.max_memory_allocated(device="cuda") / (1024 ** 3):.1f} GB')
@@ -321,14 +326,14 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='DEQ Inference')
 
-    parser.add_argument('--landmark_model_weights', default='/path/to/final.pth.tar')
+    parser.add_argument('--landmark_model_weights', default='final.pth.tar')
     parser.add_argument('--verbose_solver', type=str2bool, default=False)
     parser.add_argument('--rwr', type=str2bool, default=True, help='Do recurrence without recurrence')
     parser.add_argument('--rwr_max_iters', type=int, default=1) #usually 1
     parser.add_argument('--rwr_take_one_less_inference_step', type=str2bool, default=False) #if True, effective n_iters=rwr_max_iters, otherwise n_iters=rwr_max_iters+1
     
     parser.add_argument('--WFLW_V_split', type=str, choices=['hard', 'easy'], default='easy')
-    parser.add_argument('--WFLW_V_dataset_path', type=str, default='/path/to/WFLW_V')
+    parser.add_argument('--WFLW_V_dataset_path', type=str, default='datasets/WFLW_V/WFLW_V_release')
     parser.add_argument('--WFLW_V_batch_size', type=int, default=5, help='max num of videos that each have their frame i combined into a single batch')
     parser.add_argument('--WFLW_V_workers', type=int, default=8, help='loading of multiple videos can be slow, so parallelize it across cpu cores')
 
