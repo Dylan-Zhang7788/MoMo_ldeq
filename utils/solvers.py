@@ -383,6 +383,7 @@ def root_solver(f, x0, max_iters, solver_args, stochastic_max_iters=False, save_
     max_iters = random.randint(1, max_iters) if stochastic_max_iters else max_iters
     if solver_args.verbose_solver: print(f'----- SOLVER: {solver_args.solver} {name} mi={max_iters}')
 
+    solver_args.solver = 'broyden'
     if solver_args.solver == 'broyden':
         results_dict = broyden(f=f,
                                x0=x0,

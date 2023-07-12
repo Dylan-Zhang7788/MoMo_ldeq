@@ -108,5 +108,7 @@ venv.bak/
 #codebase-specific
 logs/*
 
+out
+.vscode
 final.pth.tar
 WFLW_V_release

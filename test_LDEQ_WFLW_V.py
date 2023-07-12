@@ -85,12 +85,16 @@ class DEQInference(object):
         print(f'avg (NME, NMJ) = {np.mean(NMEs):02.2f}, {np.mean(NMJs):02.2f}')
 
     @torch.no_grad()
-    def _test_single_video_sequential(self, video_frames, oracle_kpts, bboxes, plot):
+    def _test_single_video_sequential(self,video_ID, video_frames, oracle_kpts, bboxes, plot):
         """ This is our baseline. We process each frame individually for both fine and coarse bboxes"""
 
         n_frames = len(video_frames)
         pred_frame_kpts = np.zeros((n_frames, 98, 2))
         self.prev_NMJs = None #only to debug NMJ metric
+        frame_0 = video_frames[0]
+        size = (frame_0.shape[1],frame_0.shape[0])
+        fourcc = cv2.VideoWriter_fourcc(*"MP4V") # 视频编码格式
+        videoWrite = cv2.VideoWriter(f'./out/{video_ID}.mp4',fourcc,20,size)
 
         for frame_idx in range(n_frames):
             z0 = self.get_z0(1)
@@ -107,9 +111,11 @@ class DEQInference(object):
                 frame = video_frames[frame_idx]
                 frame = draw_landmark(oracle_kpts[frame_idx], frame, bgr=(0, 255, 0))
                 frame = draw_landmark(kpt_preds, frame, bgr=(0, 0, 255))
-                cv2.imshow(f'predictions vs. gnd truth', frame)
-                if cv2.waitKey(1) & 0xFF == ord('q'): break  # press q key to break
+                videoWrite.write(frame)
+                # cv2.imshow(f'predictions vs. gnd truth', frame)
+                # if cv2.waitKey(1) & 0xFF == ord('q'): break  # press q key to break
 
+        videoWrite.release() 
         NME, NMJ = video_NME_NMJ(pred_frame_kpts, oracle_kpts)
 
         return NME, NMJ
@@ -125,7 +131,7 @@ class DEQInference(object):
         frame_0 = video_frames[0]
         size = (frame_0.shape[1],frame_0.shape[0])
         fourcc = cv2.VideoWriter_fourcc(*"MP4V") # 视频编码格式
-        videoWrite = cv2.VideoWriter(f'.out/{video_ID}.mp4',fourcc,20,size)
+        videoWrite = cv2.VideoWriter(f'./out/{video_ID}.mp4',fourcc,20,size)
 
         for frame_idx in range(n_frames):
 
@@ -332,7 +338,7 @@ if __name__ == '__main__':
     parser.add_argument('--rwr_max_iters', type=int, default=1) #usually 1
     parser.add_argument('--rwr_take_one_less_inference_step', type=str2bool, default=False) #if True, effective n_iters=rwr_max_iters, otherwise n_iters=rwr_max_iters+1
     
-    parser.add_argument('--WFLW_V_split', type=str, choices=['hard', 'easy'], default='easy')
+    parser.add_argument('--WFLW_V_split', type=str, choices=['hard', 'easy'], default='hard')
     parser.add_argument('--WFLW_V_dataset_path', type=str, default='datasets/WFLW_V/WFLW_V_release')
     parser.add_argument('--WFLW_V_batch_size', type=int, default=5, help='max num of videos that each have their frame i combined into a single batch')
     parser.add_argument('--WFLW_V_workers', type=int, default=8, help='loading of multiple videos can be slow, so parallelize it across cpu cores')
