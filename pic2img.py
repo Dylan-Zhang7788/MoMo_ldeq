@@ -17,3 +17,4 @@ for i in fileName:
     videoWrite.write(img)# 将图片写入所创建的视频对象
 videoWrite.release() # 释放了才能完成写入，连续写多个视频的时候这句话非常关键
 
+
